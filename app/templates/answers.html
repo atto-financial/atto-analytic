@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Answers Data</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+    <div class="container">
+        <h1>Answers Data</h1>
+        <a href="/" class="back-link">กลับสู่หน้าหลัก</a>
+
+        <div class="search-container">
+            <input type="text" id="searchInput" onkeyup="filterTable()" placeholder="ค้นหาใน answers....">
+        </div>
+
+        <div class="table-responsive">
+            <table id="answersTable"> {# Add an ID to the table #}
+                <thead>
+                    <tr>
+                        <th>Answer ID</th>
+                        <th>Session ID</th>
+                        <th>User ID</th>
+                        <th>Feature ID</th>
+                        <th>Model ID</th>
+                        <th>Answer (JSONB)</th>
+                        <th>ML Artifact (JSONB)</th>
+                        <th>Approval Loan Status</th>
+                        <th>Updated At</th>
+                        <th>Created At</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for answer in answers %}
+                    <tr>
+                        <td>{{ answer.answer_id }}</td>
+                        <td>{{ answer.session_id }}</td>
+                        <td>{{ answer.user_id }}</td>
+                        <td>{{ answer.feature_id }}</td>
+                        <td>{{ answer.model_id }}</td>
+                        <td>{{ answer.answer if answer.answer else 'N/A' }}</td>
+                        <td>{{ answer.ml_artifact if answer.ml_artifact else 'N/A' }}</td>
+                        <td>{{ answer.approval_loan_status if answer.approval_loan_status else 'N/A' }}</td>
+                        <td>{{ answer.updated_at }}</td>
+                        <td>{{ answer.created_at }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        function filterTable() {
+            var input, filter, table, tr, td, i, j, txtValue;
+            input = document.getElementById("searchInput");
+            filter = input.value.toUpperCase();
+            table = document.getElementById("answersTable"); // Correct table ID
+            tr = table.getElementsByTagName("tr");
+
+            for (i = 1; i < tr.length; i++) {
+                tr[i].style.display = "none";
+                td = tr[i].getElementsByTagName("td");
+                for (j = 0; j < td.length; j++) {
+                    if (td[j]) {
+                        txtValue = td[j].textContent || td[j].innerText;
+                        if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                            tr[i].style.display = "";
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>

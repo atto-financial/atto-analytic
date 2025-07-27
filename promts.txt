@@ -1,0 +1,318 @@
+I want daily data of lent that paid off (loan_action_histories.action == payoff) at each daya's details (all part of paid amount that composed to total payoff) such as
+1. principal amount - derivable from using loan_action_histories.loan_ref_id ref to loan_requests.loan_ref_id the get loan_requests.approved_amount
+2. interest amount - derivable from using loan_action_histories.loan_ref_id ref to all (sum) of interest_adjustment_histories.total_amount of occured of that loan_ref_id
+3. initial fee  - derivable from using loan_action_histories.loan_ref_id ref to all (sum) of fine_adjustment_histories.fee of occured of that loan_ref_id
+4. fine amount - derivable from using loan_action_histories.loan_ref_id ref to all (sum) of fine_adjustment_histories of.total_amount occured of that loan_ref_id
+5. collection_fee_amount - derivable from using loan_action_histories.loan_ref_id ref to all (sum) of collection_fee_histories.total_amount of occured of that loan_ref_id
+; all from these tables:
+
+CREATE TABLE public.loan_action_histories (
+	action_id uuid DEFAULT gen_random_uuid() NOT NULL,
+	user_id uuid NOT NULL,
+	loan_ref_id uuid NOT NULL,
+	"action" public."loan_action" NOT NULL,
+	amount numeric(8, 2) NOT NULL,
+	latest_payoff_score int4 NOT NULL,
+	latest_payoff_count int4 NOT NULL,
+	"attach" varchar(64) NOT NULL,
+	accepted bool NULL,
+	note text DEFAULT ''::text NOT NULL,
+	updated_by varchar(36) NULL,
+	updated_at timestamptz DEFAULT now() NOT NULL,
+	created_by varchar(36) NULL,
+	created_at timestamptz DEFAULT now() NOT NULL,
+	CONSTRAINT loan_action_histories_pkey PRIMARY KEY (action_id),
+	CONSTRAINT loan_action_histories_loan_ref_id_fkey FOREIGN KEY (loan_ref_id) REFERENCES public.loan_requests(loan_ref_id),
+	CONSTRAINT loan_action_histories_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(user_id)
+);
+
+CREATE TABLE public.loan_requests (
+	loan_ref_id uuid DEFAULT gen_random_uuid() NOT NULL,
+	user_id uuid NOT NULL,
+	loan_id varchar(32) NOT NULL,
+	request_status public."loan_request_status" DEFAULT 'pending'::loan_request_status NOT NULL,
+	approved_loan_at timestamptz NULL,
+	due_date timestamptz NULL,
+	request_amount numeric(8, 2) NOT NULL,
+	approved_amount numeric(8, 2) NULL,
+	qr_received_img varchar(64) NULL,
+	note text DEFAULT ''::text NOT NULL,
+	updated_by varchar(36) NULL,
+	updated_at timestamptz DEFAULT now() NOT NULL,
+	created_at timestamptz DEFAULT now() NOT NULL,
+	total_loan_amount numeric(8, 2) NULL,
+	CONSTRAINT loan_requests_loan_id_key UNIQUE (loan_id),
+	CONSTRAINT loan_requests_pkey PRIMARY KEY (loan_ref_id),
+	CONSTRAINT loan_requests_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(user_id)
+);
+
+CREATE TABLE public.interest_adjustment_histories (
+	interest_adj_id uuid DEFAULT gen_random_uuid() NOT NULL,
+	user_id uuid NOT NULL,
+	loan_ref_id uuid NOT NULL,
+	principle numeric(8, 2) NOT NULL,
+	interest_rate numeric(6, 5) NOT NULL,
+	total_amount numeric(8, 2) NOT NULL,
+	created_at timestamptz DEFAULT now() NOT NULL,
+	total_loan_amount numeric(8, 2) NOT NULL,
+	CONSTRAINT interest_adjustment_histories_pkey PRIMARY KEY (interest_adj_id),
+	CONSTRAINT interest_adjustment_histories_loan_ref_id_fkey FOREIGN KEY (loan_ref_id) REFERENCES public.loan_requests(loan_ref_id),
+	CONSTRAINT interest_adjustment_histories_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(user_id)
+);
+
+CREATE TABLE public.fine_adjustment_histories (
+	fine_adj_id uuid DEFAULT gen_random_uuid() NOT NULL,
+	user_id uuid NOT NULL,
+	loan_ref_id uuid NOT NULL,
+	fee numeric(8, 2) NOT NULL,
+	total_amount numeric(8, 2) NOT NULL,
+	created_at timestamptz DEFAULT now() NOT NULL,
+	total_loan_amount numeric(8, 2) NOT NULL,
+	CONSTRAINT fine_adjustment_histories_pkey PRIMARY KEY (fine_adj_id),
+	CONSTRAINT fine_adjustment_histories_loan_ref_id_fkey FOREIGN KEY (loan_ref_id) REFERENCES public.loan_requests(loan_ref_id),
+	CONSTRAINT fine_adjustment_histories_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(user_id)
+);
+
+CREATE TABLE public.collection_fee_histories (
+	collection_fee_id uuid DEFAULT gen_random_uuid() NOT NULL,
+	user_id uuid NOT NULL,
+	loan_ref_id uuid NOT NULL,
+	loan_due_date timestamptz NOT NULL,
+	round int2 NOT NULL,
+	total_loan_amount numeric(8, 2) NOT NULL,
+	total_amount numeric(8, 2) NOT NULL,
+	created_at timestamptz DEFAULT now() NOT NULL,
+	CONSTRAINT collection_fee_histories_pkey PRIMARY KEY (collection_fee_id),
+	CONSTRAINT collection_fee_histories_loan_ref_id_fkey FOREIGN KEY (loan_ref_id) REFERENCES public.loan_requests(loan_ref_id),
+	CONSTRAINT collection_fee_histories_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(user_id)
+);
+
+like users.html and loan_requests.html, show raw data db tables tlike these for these tables too:
+
+CREATE TABLE public.accouting_tracks (
+	created_at date NULL,
+	today_lent_amount numeric NULL,
+	today_cash_amount numeric NULL,
+	in_due_amount numeric NULL,
+	in_due_principal numeric NULL,
+	due_date_amount numeric NULL,
+	default_amount numeric NULL,
+	default_principal_amount numeric NULL,
+	today_paid_amount numeric NULL,
+	today_paid_principal_amount numeric NULL,
+	today_paid_margin_amount numeric NULL,
+	operational_cost_amount varchar NULL,
+	operational_cost_desc varchar NULL
+);
+
+CREATE TABLE public.answers (
+	answer_id uuid DEFAULT gen_random_uuid() NOT NULL,
+	session_id varchar(12) NOT NULL,
+	user_id uuid NOT NULL,
+	feature_id uuid NOT NULL,
+	model_id uuid NOT NULL,
+	answer jsonb NULL,
+	ml_artifact jsonb NULL,
+	"approval_loan_status" public."approval_loan_status" NULL,
+	updated_at timestamptz DEFAULT now() NOT NULL,
+	created_at timestamptz DEFAULT now() NOT NULL,
+	CONSTRAINT answers_pkey PRIMARY KEY (answer_id),
+	CONSTRAINT answers_session_id_key UNIQUE (session_id),
+	CONSTRAINT answers_feature_id_fkey FOREIGN KEY (feature_id) REFERENCES public.features(feature_id),
+	CONSTRAINT answers_model_id_fkey FOREIGN KEY (model_id) REFERENCES public.models(model_id),
+	CONSTRAINT answers_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(user_id)
+);
+
+CREATE TABLE public.collection_fee_histories (
+	collection_fee_id uuid DEFAULT gen_random_uuid() NOT NULL,
+	user_id uuid NOT NULL,
+	loan_ref_id uuid NOT NULL,
+	loan_due_date timestamptz NOT NULL,
+	round int2 NOT NULL,
+	total_loan_amount numeric(8, 2) NOT NULL,
+	total_amount numeric(8, 2) NOT NULL,
+	created_at timestamptz DEFAULT now() NOT NULL,
+	CONSTRAINT collection_fee_histories_pkey PRIMARY KEY (collection_fee_id),
+	CONSTRAINT collection_fee_histories_loan_ref_id_fkey FOREIGN KEY (loan_ref_id) REFERENCES public.loan_requests(loan_ref_id),
+	CONSTRAINT collection_fee_histories_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(user_id)
+);
+
+CREATE TABLE public.connect_platforms (
+	user_id uuid NOT NULL,
+	line_user_id varchar(64) NOT NULL,
+	line_latest_profile_display varchar(25) NULL,
+	line_latest_profile_picture varchar(260) NULL,
+	line_is_blocked bool DEFAULT false NOT NULL,
+	updated_at timestamptz DEFAULT now() NOT NULL,
+	created_at timestamptz DEFAULT now() NOT NULL,
+	CONSTRAINT connect_platforms_line_user_id_key UNIQUE (line_user_id),
+	CONSTRAINT connect_platforms_pkey PRIMARY KEY (user_id),
+	CONSTRAINT connect_platforms_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(user_id)
+);
+
+CREATE TABLE public.consents (
+	consent_id uuid DEFAULT gen_random_uuid() NOT NULL,
+	user_id uuid NOT NULL,
+	"version" varchar(50) NULL,
+	"content" text NOT NULL,
+	allowed bool DEFAULT false NOT NULL,
+	created_at timestamptz DEFAULT now() NOT NULL,
+	CONSTRAINT consents_pkey PRIMARY KEY (consent_id),
+	CONSTRAINT consents_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(user_id)
+);
+
+CREATE TABLE public.default_configs (
+	c_key varchar(50) NOT NULL,
+	c_type public."type_config" DEFAULT 'string'::type_config NOT NULL,
+	c_value varchar(255) NOT NULL,
+	CONSTRAINT default_configs_pkey PRIMARY KEY (c_key)
+);
+
+CREATE TABLE public.features (
+	feature_id uuid DEFAULT gen_random_uuid() NOT NULL,
+	feature_slug varchar(36) NOT NULL,
+	title varchar(255) NOT NULL,
+	description text NULL,
+	questions_n_choices jsonb NULL,
+	removed bool DEFAULT false NOT NULL,
+	updated_by varchar(36) NOT NULL,
+	created_by varchar(36) NOT NULL,
+	created_at timestamptz DEFAULT now() NOT NULL,
+	updated_at timestamptz DEFAULT now() NOT NULL,
+	CONSTRAINT features_pkey PRIMARY KEY (feature_id)
+);
+CREATE UNIQUE INDEX index_unique_model_slug ON public.features USING btree (feature_slug) WHERE (removed = false);
+
+CREATE TABLE public.fine_adjustment_histories (
+	fine_adj_id uuid DEFAULT gen_random_uuid() NOT NULL,
+	user_id uuid NOT NULL,
+	loan_ref_id uuid NOT NULL,
+	fee numeric(8, 2) NOT NULL,
+	total_amount numeric(8, 2) NOT NULL,
+	created_at timestamptz DEFAULT now() NOT NULL,
+	total_loan_amount numeric(8, 2) NOT NULL,
+	CONSTRAINT fine_adjustment_histories_pkey PRIMARY KEY (fine_adj_id),
+	CONSTRAINT fine_adjustment_histories_loan_ref_id_fkey FOREIGN KEY (loan_ref_id) REFERENCES public.loan_requests(loan_ref_id),
+	CONSTRAINT fine_adjustment_histories_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(user_id)
+);
+
+CREATE TABLE public.interest_adjustment_histories (
+	interest_adj_id uuid DEFAULT gen_random_uuid() NOT NULL,
+	user_id uuid NOT NULL,
+	loan_ref_id uuid NOT NULL,
+	principle numeric(8, 2) NOT NULL,
+	interest_rate numeric(6, 5) NOT NULL,
+	total_amount numeric(8, 2) NOT NULL,
+	created_at timestamptz DEFAULT now() NOT NULL,
+	total_loan_amount numeric(8, 2) NOT NULL,
+	CONSTRAINT interest_adjustment_histories_pkey PRIMARY KEY (interest_adj_id),
+	CONSTRAINT interest_adjustment_histories_loan_ref_id_fkey FOREIGN KEY (loan_ref_id) REFERENCES public.loan_requests(loan_ref_id),
+	CONSTRAINT interest_adjustment_histories_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(user_id)
+);
+
+CREATE TABLE public.loan_action_histories (
+	action_id uuid DEFAULT gen_random_uuid() NOT NULL,
+	user_id uuid NOT NULL,
+	loan_ref_id uuid NOT NULL,
+	"action" public."loan_action" NOT NULL,
+	amount numeric(8, 2) NOT NULL,
+	latest_payoff_score int4 NOT NULL,
+	latest_payoff_count int4 NOT NULL,
+	"attach" varchar(64) NOT NULL,
+	accepted bool NULL,
+	note text DEFAULT ''::text NOT NULL,
+	updated_by varchar(36) NULL,
+	updated_at timestamptz DEFAULT now() NOT NULL,
+	created_by varchar(36) NULL,
+	created_at timestamptz DEFAULT now() NOT NULL,
+	CONSTRAINT loan_action_histories_pkey PRIMARY KEY (action_id),
+	CONSTRAINT loan_action_histories_loan_ref_id_fkey FOREIGN KEY (loan_ref_id) REFERENCES public.loan_requests(loan_ref_id),
+	CONSTRAINT loan_action_histories_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(user_id)
+);
+
+CREATE TABLE public.loan_summary_statuses (
+	user_id uuid NOT NULL,
+	loanable bool NULL,
+	fee_rate numeric(3, 2) DEFAULT 0 NOT NULL,
+	interest_rate numeric(3, 2) DEFAULT 0 NOT NULL,
+	payoff_count int4 DEFAULT 0 NOT NULL,
+	principle numeric(8, 2) DEFAULT 0 NOT NULL,
+	total_loan_amount numeric(8, 2) NULL,
+	"loan_status" public."loan_status" DEFAULT 'never'::loan_status NULL,
+	payoff_score int4 DEFAULT 0 NOT NULL,
+	max_loan_amount numeric(8, 2) DEFAULT 0 NOT NULL,
+	max_payoff_day int4 DEFAULT 0 NOT NULL,
+	cool_down_payoff_count int4 DEFAULT 0 NOT NULL,
+	cool_down_payoff_date timestamptz DEFAULT now() NOT NULL,
+	updated_at timestamptz DEFAULT now() NOT NULL,
+	CONSTRAINT loan_summary_statuses_pkey PRIMARY KEY (user_id),
+	CONSTRAINT loan_summary_statuses_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(user_id)
+);
+
+CREATE TABLE public.model_predicts (
+	feature_id uuid NOT NULL,
+	session_id varchar(12) NOT NULL,
+	user_id uuid NOT NULL,
+	model_id uuid NOT NULL,
+	default_probability numeric(4, 3) NULL,
+	model_prediction int2 NULL,
+	adjust_prediction int2 NULL,
+	"data_set" public."data_set" DEFAULT 'do_nothing'::data_set NOT NULL,
+	nextgen_prediction int2 NULL,
+	nextgen_adjprediction int2 NULL,
+	updated_at timestamptz DEFAULT now() NOT NULL,
+	created_at timestamptz DEFAULT now() NOT NULL,
+	CONSTRAINT model_predicts_pkey PRIMARY KEY (feature_id, user_id, session_id, model_id),
+	CONSTRAINT model_predicts_feature_id_fkey FOREIGN KEY (feature_id) REFERENCES public.features(feature_id),
+	CONSTRAINT model_predicts_model_id_fkey FOREIGN KEY (model_id) REFERENCES public.models(model_id),
+	CONSTRAINT model_predicts_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.answers(session_id),
+	CONSTRAINT model_predicts_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(user_id)
+);
+
+CREATE TABLE public.models (
+	model_id uuid DEFAULT gen_random_uuid() NOT NULL,
+	model_slug varchar(36) NOT NULL,
+	title varchar(255) NOT NULL,
+	description text NULL,
+	removed bool DEFAULT false NOT NULL,
+	updated_by varchar(36) NOT NULL,
+	updated_at timestamptz DEFAULT now() NOT NULL,
+	created_by varchar(36) NOT NULL,
+	created_at timestamptz DEFAULT now() NOT NULL,
+	CONSTRAINT models_pkey PRIMARY KEY (model_id)
+);
+
+CREATE TABLE public.user_academics (
+	user_id uuid NOT NULL,
+	"name" varchar(255) NULL,
+	academic_years int2 NULL,
+	start_date date NULL,
+	end_date date NULL,
+	card_expried_date date NULL,
+	student_credential_img varchar(64) NULL,
+	created_at timestamptz DEFAULT now() NOT NULL,
+	updated_at timestamptz DEFAULT now() NOT NULL,
+	CONSTRAINT user_academics_pkey PRIMARY KEY (user_id),
+	CONSTRAINT user_academics_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(user_id)
+);
+
+CREATE TABLE public.user_addresses (
+	user_id uuid NOT NULL,
+	address varchar(550) NULL,
+	subdistrict varchar(150) NULL,
+	district varchar(150) NULL,
+	province varchar(250) NULL,
+	zipcode varchar(25) NULL,
+	updated_at timestamptz DEFAULT now() NOT NULL,
+	CONSTRAINT user_addresses_pkey PRIMARY KEY (user_id),
+	CONSTRAINT user_addresses_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(user_id)
+);
+
+CREATE TABLE public.user_occupations (
+	user_id uuid NOT NULL,
+	occupation_name varchar(250) NOT NULL,
+	monthly_income numeric(8, 2) DEFAULT 0 NOT NULL,
+	updated_at timestamptz DEFAULT now() NOT NULL,
+	CONSTRAINT user_occupations_pkey PRIMARY KEY (user_id),
+	CONSTRAINT user_occupations_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(user_id)
+);

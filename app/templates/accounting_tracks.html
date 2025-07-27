@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accounting Tracks Data</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+    <div class="container">
+        <h1>Accounting Tracks Data</h1>
+        <a href="/" class="back-link">กลับสู่หน้าหลัก</a>
+
+        <div class="search-container">
+            <input type="text" id="searchInput" onkeyup="filterTable()" placeholder="ค้นหาใน accounting tracks....">
+        </div>
+
+        <div class="table-responsive">
+            <table id="accountingTracksTable"> {# Add an ID to the table #}
+                <thead>
+                    <tr>
+                        <th>Created At</th>
+                        <th>Today Lent Amount</th>
+                        <th>Today Cash Amount</th>
+                        <th>In Due Amount</th>
+                        <th>In Due Principal</th>
+                        <th>Due Date Amount</th>
+                        <th>Default Amount</th>
+                        <th>Default Principal Amount</th>
+                        <th>Today Paid Amount</th>
+                        <th>Today Paid Principal Amount</th>
+                        <th>Today Paid Margin Amount</th>
+                        <th>Operational Cost Amount</th>
+                        <th>Operational Cost Desc</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for track in accounting_tracks %}
+                    <tr>
+                        <td>{{ track.created_at if track.created_at else 'N/A' }}</td>
+                        <td>{{ track.today_lent_amount if track.today_lent_amount is not none else 'N/A' }}</td>
+                        <td>{{ track.today_cash_amount if track.today_cash_amount is not none else 'N/A' }}</td>
+                        <td>{{ track.in_due_amount if track.in_due_amount is not none else 'N/A' }}</td>
+                        <td>{{ track.in_due_principal if track.in_due_principal is not none else 'N/A' }}</td>
+                        <td>{{ track.due_date_amount if track.due_date_amount is not none else 'N/A' }}</td>
+                        <td>{{ track.default_amount if track.default_amount is not none else 'N/A' }}</td>
+                        <td>{{ track.default_principal_amount if track.default_principal_amount is not none else 'N/A'
+                            }}</td>
+                        <td>{{ track.today_paid_amount if track.today_paid_amount is not none else 'N/A' }}</td>
+                        <td>{{ track.today_paid_principal_amount if track.today_paid_principal_amount is not none else
+                            'N/A' }}</td>
+                        <td>{{ track.today_paid_margin_amount if track.today_paid_margin_amount is not none else 'N/A'
+                            }}</td>
+                        <td>{{ track.operational_cost_amount if track.operational_cost_amount else 'N/A' }}</td>
+                        <td>{{ track.operational_cost_desc if track.operational_cost_desc else 'N/A' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        function filterTable() {
+            var input, filter, table, tr, td, i, j, txtValue;
+            input = document.getElementById("searchInput");
+            filter = input.value.toUpperCase();
+            table = document.getElementById("accountingTracksTable"); // Correct table ID
+            tr = table.getElementsByTagName("tr");
+
+            for (i = 1; i < tr.length; i++) {
+                tr[i].style.display = "none";
+                td = tr[i].getElementsByTagName("td");
+                for (j = 0; j < td.length; j++) {
+                    if (td[j]) {
+                        txtValue = td[j].textContent || td[j].innerText;
+                        if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                            tr[i].style.display = "";
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>

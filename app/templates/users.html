@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Users Data</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+    <div class="container">
+        <h1>Users Data</h1>
+        <a href="/" class="back-link">กลับสู่หน้าหลัก</a>
+
+        <div class="search-container">
+            <input type="text" id="searchInput" onkeyup="filterTable()" placeholder="ค้นหาใน users....">
+        </div>
+
+        <div class="table-responsive">
+            <table id="usersTable"> {# Add an ID to the table #}
+                <thead>
+                    <tr>
+                        <th>User ID</th>
+                        <th>CID</th>
+                        <th>Birth Date</th>
+                        <th>Gender</th>
+                        <th>User Status</th>
+                        <th>Created At</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>{{ user.user_id }}</td>
+                        <td>{{ user.cid if user.cid else 'N/A' }}</td>
+                        <td>{{ user.birth_date }}</td>
+                        <td>{{ user.gender }}</td>
+                        <td>{{ user.user_status }}</td>
+                        <td>{{ user.created_at }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        function filterTable() {
+            // Declare variables 
+            var input, filter, table, tr, td, i, j, txtValue;
+            input = document.getElementById("searchInput");
+            filter = input.value.toUpperCase(); // Convert input to uppercase for case-insensitive search
+            table = document.getElementById("usersTable"); // Get the table by its ID
+            tr = table.getElementsByTagName("tr"); // Get all rows
+
+            // Loop through all table rows, and hide those who don't match the search query
+            for (i = 1; i < tr.length; i++) { // Start from 1 to skip the header row
+                tr[i].style.display = "none"; // Hide the row by default
+                td = tr[i].getElementsByTagName("td"); // Get all columns in the current row
+                for (j = 0; j < td.length; j++) {
+                    if (td[j]) {
+                        txtValue = td[j].textContent || td[j].innerText;
+                        if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                            tr[i].style.display = ""; // Show the row
+                            break; // Once a match is found in a row, no need to check other cells in that row
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>

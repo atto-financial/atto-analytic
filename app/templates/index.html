@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3.x/build/global/luxon.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.x/dist/chartjs-adapter-luxon.min.js"></script>
+
+</head>
+
+<body>
+    <div class="container">
+        <h1>Atto Fiancial (Corp.) Analytic Technology</h1>
+        <nav>
+            <ul>
+                <li><a href="/users">Users</a></li>
+                <li><a href="/loan_requests">Loan Requests</a></li>
+                <li><a href="/accounting_tracks">Accounting Tracks</a></li>
+                <li><a href="/answers">Answers</a></li>
+                <!--  <li><a href="/collection_fee_histories">Collection Fee Histories Data</a></li>
+                <li><a href="/connect_platforms">Connect Platforms Data</a></li>
+                <li><a href="/consents">Consents Data</a></li>
+                <li><a href="/default_configs">Default Configs Data</a></li>
+                <li><a href="/features">Features Data</a></li>
+                <li><a href="/fine_adjustment_histories">Fine Adjustment Histories Data</a></li>
+                <li><a href="/interest_adjustment_histories">Interest Adjustment Histories Data</a></li>
+                <li><a href="/loan_action_histories">Loan Action Histories Data</a></li>
+                <li><a href="/loan_summary_statuses">Loan Summary Statuses Data</a></li>
+                <li><a href="/model_predicts">Model Predicts Data</a></li>
+                <li><a href="/models">Models Data</a></li>
+                <li><a href="/user_academics">User Academics Data</a></li>
+                <li><a href="/user_addresses">User Addresses Data</a></li>
+                <li><a href="/user_occupations">User Occupations Data</a></li> -->
+            </ul>
+        </nav>
+
+        <h2>Loan Request Status Distribution</h2>
+        <div class="chart-container">
+            <canvas id="loanRequestStatusChart"></canvas>
+        </div>
+
+        <h2>Daily Loan Lent vs. Payoff Amount</h2>
+        <div class="chart-container">
+            <canvas id="dailyLoanSummaryChart"></canvas>
+        </div>
+
+        <h2>Daily Net Loan Flow (Payoff - Lent)</h2>
+        <div class="chart-container">
+            <canvas id="dailyNetLoanFlowChart"></canvas>
+        </div>
+
+        <h2>Daily Payoff Components</h2>
+        <div id="payoffComponentsSummary" class="chart-summary">
+        </div>
+        <div class="chart-container">
+            <canvas id="dailyPayoffDetailsChart"></canvas>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='js/chart_data.js') }}"></script>
+</body>
+
+</html>

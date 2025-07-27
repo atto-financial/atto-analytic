@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "4370:4370" # Changed from 4370:4370
+    volumes:
+      - ./app:/app
+      - ./.env:/app/.env
+    env_file:
+      - ./.env

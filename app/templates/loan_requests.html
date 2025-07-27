@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loan Requests Data</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+    <div class="container">
+        <h1>Loan Requests Data</h1>
+        <a href="/" class="back-link">กลับสู่หน้าหลัก</a>
+
+        <div class="search-container">
+            <input type="text" id="searchInput" onkeyup="filterTable()" placeholder="ค้นหาใน loan requests....">
+        </div>
+
+        <div class="table-responsive">
+            <table id="loanRequestsTable"> {# Add an ID to the table #}
+                <thead>
+                    <tr>
+                        <th>Loan ID</th>
+                        <th>Request Status</th>
+                        <th>Request Amount</th>
+                        <th>Approved Amount</th>
+                        <th>Due Date</th>
+                        <th>Created At</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for loan in loan_requests %}
+                    <tr>
+                        <td>{{ loan.loan_id }}</td>
+                        <td>{{ loan.request_status }}</td>
+                        <td>{{ loan.request_amount }}</td>
+                        <td>{{ loan.approved_amount if loan.approved_amount else 'N/A' }}</td>
+                        <td>{{ loan.due_date if loan.due_date else 'N/A' }}</td>
+                        <td>{{ loan.created_at }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        function filterTable() {
+            // Declare variables
+            var input, filter, table, tr, td, i, j, txtValue;
+            input = document.getElementById("searchInput");
+            filter = input.value.toUpperCase(); // Convert input to uppercase for case-insensitive search
+            table = document.getElementById("loanRequestsTable"); // Get the table by its ID
+            tr = table.getElementsByTagName("tr"); // Get all rows
+
+            // Loop through all table rows, and hide those who don't match the search query
+            for (i = 1; i < tr.length; i++) { // Start from 1 to skip the header row
+                tr[i].style.display = "none"; // Hide the row by default
+                td = tr[i].getElementsByTagName("td"); // Get all columns in the current row
+                for (j = 0; j < td.length; j++) {
+                    if (td[j]) {
+                        txtValue = td[j].textContent || td[j].innerText;
+                        if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                            tr[i].style.display = ""; // Show the row
+                            break; // Once a match is found in a row, no need to check other cells in that row
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>
