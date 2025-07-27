@@ -59,8 +59,8 @@ def loan_request_status_data():
         data = [row['count'] for row in status_counts]
         return {'labels': labels, 'data': data}
 
-    cached_result = get_cached_data('loan_status_chart', _fetch_status_data)
-    return jsonify(cached_result)
+    # cached_result = get_cached_data('loan_status_chart', _fetch_status_data)
+    return jsonify(_fetch_status_data())
 
 
 @app.route('/api/daily_loan_transaction_summary')
@@ -92,9 +92,9 @@ def daily_loan_transaction_summary():
                 row['transaction_date'] = row['transaction_date'].isoformat()
         return summary_data
 
-    cached_result = get_cached_data(
-        'daily_loan_summary_chart', _fetch_daily_summary_data)
-    return jsonify(cached_result)
+    # cached_result = get_cached_data(
+        # 'daily_loan_summary_chart', _fetch_daily_summary_data)
+    return jsonify(_fetch_daily_summary_data())
 
 
 @app.route('/api/daily_payoff_details')
@@ -144,9 +144,9 @@ def daily_payoff_details():
                 # No 'else' needed for float/int, as they are already JSON serializable
         return details_data
 
-    cached_result = get_cached_data(
-        'daily_payoff_details_chart', _fetch_daily_payoff_details_data)
-    return jsonify(cached_result)
+    # cached_result = get_cached_data(
+        # 'daily_payoff_details_chart', _fetch_daily_payoff_details_data)
+    return jsonify(_fetch_daily_payoff_details_data())
 
 
 # --- NEW ROUTES FOR RAW DATA TABLES ---
