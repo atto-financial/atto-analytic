@@ -316,3 +316,49 @@ CREATE TABLE public.user_occupations (
 	CONSTRAINT user_occupations_pkey PRIMARY KEY (user_id),
 	CONSTRAINT user_occupations_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(user_id)
 );
+
+from these 2 tables I need 3 pieces of data and ist bar chart, daily, tracking loan amount situation that's not paid yet at the day in question (using seeing loan_requests.approved_loan_at, loan_requests.due_date, and loan_action_histories.created_at):
+1. Due Today - Sum total of loan_requests.approved_amount that have loan_requests.due_date that day AND still not have its (ref by loan_requests.loan_ref_id = loan_action_histories.loan_ref_id) loan_action_histories.action = pay_off of its loan_action_histories.created_at yet
+2. Due Future - Sum total of loan_requests.approved_amount that have loan_requests.due_date at future of that day AND still not have its (ref by loan_requests.loan_ref_id = loan_action_histories.loan_ref_id) loan_action_histories.action = pay_off of its loan_action_histories.created_at yet
+3. Overdue - Sum total of loan_requests.approved_amount that have loan_requests.due_date previous of that day AND still not have its (ref by loan_requests.loan_ref_id = loan_action_histories.loan_ref_id) loan_action_histories.action = pay_off of its loan_action_histories.created_at yet
+
+CREATE TABLE public.loan_requests (
+	loan_ref_id uuid DEFAULT gen_random_uuid() NOT NULL,
+	user_id uuid NOT NULL,
+	loan_id varchar(32) NOT NULL,
+	request_status public."loan_request_status" DEFAULT 'pending'::loan_request_status NOT NULL,
+	approved_loan_at timestamptz NULL,
+	due_date timestamptz NULL,
+	request_amount numeric(8, 2) NOT NULL,
+	approved_amount numeric(8, 2) NULL,
+	qr_received_img varchar(64) NULL,
+	note text DEFAULT ''::text NOT NULL,
+	updated_by varchar(36) NULL,
+	updated_at timestamptz DEFAULT now() NOT NULL,
+	created_at timestamptz DEFAULT now() NOT NULL,
+	total_loan_amount numeric(8, 2) NULL,
+	CONSTRAINT loan_requests_loan_id_key UNIQUE (loan_id),
+	CONSTRAINT loan_requests_pkey PRIMARY KEY (loan_ref_id),
+	CONSTRAINT loan_requests_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(user_id)
+);
+
+CREATE TABLE public.loan_action_histories (
+	action_id uuid DEFAULT gen_random_uuid() NOT NULL,
+	user_id uuid NOT NULL,
+	loan_ref_id uuid NOT NULL,
+	"action" public."loan_action" NOT NULL,
+	amount numeric(8, 2) NOT NULL,
+	latest_payoff_score int4 NOT NULL,
+	latest_payoff_count int4 NOT NULL,
+	"attach" varchar(64) NOT NULL,
+	accepted bool NULL,
+	note text DEFAULT ''::text NOT NULL,
+	updated_by varchar(36) NULL,
+	updated_at timestamptz DEFAULT now() NOT NULL,
+	created_by varchar(36) NULL,
+	created_at timestamptz DEFAULT now() NOT NULL,
+	CONSTRAINT loan_action_histories_pkey PRIMARY KEY (action_id),
+	CONSTRAINT loan_action_histories_loan_ref_id_fkey FOREIGN KEY (loan_ref_id) REFERENCES public.loan_requests(loan_ref_id),
+	CONSTRAINT loan_action_histories_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(user_id)
+);
+

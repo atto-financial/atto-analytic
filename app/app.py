@@ -1,7 +1,8 @@
-import decimal
 from flask import Flask, render_template, jsonify
 from database import Database
 import time
+import decimal
+from datetime import date, timedelta
 
 app = Flask(__name__)
 db = Database()
@@ -497,6 +498,89 @@ def user_occupations():
         return data
     data = get_cached_data('user_occupations_table', _fetch_data)
     return render_template('user_occupations.html', data=data)
+
+
+@app.route('/api/daily_loan_situations')
+def daily_loan_situations():
+    # Set the start_date to '2025-07-17'
+    start_date = date(2025, 7, 17)
+    end_date = date.today() # Keep end_date as today
+
+    query = f"""
+        WITH all_dates AS (
+            SELECT generate_series('{start_date}'::date, '{end_date}'::date, '1 day'::interval)::date AS tracking_date
+        ),
+        loan_payoffs AS (
+            -- Get all distinct loan_ref_ids that have been paid off and the earliest payoff date
+            SELECT
+                lah.loan_ref_id,
+                MIN(lah.created_at::date) AS earliest_payoff_date
+            FROM
+                public.loan_action_histories lah
+            WHERE
+                lah.action = 'payoff'
+            GROUP BY
+                lah.loan_ref_id
+        ),
+        approved_loans AS (
+            -- Get all approved loans with their due dates
+            SELECT
+                lr.loan_ref_id,
+                lr.approved_amount,
+                lr.due_date::date AS loan_due_date,
+                lr.approved_loan_at::date AS approved_at
+            FROM
+                public.loan_requests lr
+            WHERE
+                lr.request_status = 'approved' AND lr.approved_amount IS NOT NULL
+        )
+        SELECT
+            ad.tracking_date,
+            COALESCE(SUM(CASE
+                WHEN al.loan_due_date = ad.tracking_date AND (lpo.earliest_payoff_date IS NULL OR lpo.earliest_payoff_date > ad.tracking_date)
+                THEN al.approved_amount ELSE 0
+            END), 0.00) AS due_today_amount,
+            COALESCE(SUM(CASE
+                WHEN al.loan_due_date > ad.tracking_date AND (lpo.earliest_payoff_date IS NULL OR lpo.earliest_payoff_date > ad.tracking_date)
+                THEN al.approved_amount ELSE 0
+            END), 0.00) AS due_future_amount,
+            COALESCE(SUM(CASE
+                WHEN al.loan_due_date < ad.tracking_date AND (lpo.earliest_payoff_date IS NULL OR lpo.earliest_payoff_date > ad.tracking_date)
+                THEN al.approved_amount ELSE 0
+            END), 0.00) AS overdue_amount
+        FROM
+            all_dates ad
+        CROSS JOIN
+            approved_loans al
+        LEFT JOIN
+            loan_payoffs lpo ON al.loan_ref_id = lpo.loan_ref_id
+        WHERE
+            -- Only consider loans that were approved on or before the tracking date
+            al.approved_at <= ad.tracking_date
+        GROUP BY
+            ad.tracking_date
+        ORDER BY
+            ad.tracking_date ASC;
+    """
+
+    def _fetch_daily_loan_situations_data():
+        data = db.fetch_all(query)
+        processed_data = []
+        for row in data:
+            processed_row = {}
+            for key, value in row.items():
+                if isinstance(value, decimal.Decimal):
+                    processed_row[key] = float(value)
+                elif value is not None and hasattr(value, 'isoformat'):
+                    processed_row[key] = value.isoformat()
+                else:
+                    processed_row[key] = value
+            processed_data.append(processed_row)
+        return processed_data
+
+    # The caching is commented out as per your last provided code snippet.
+    # cached_result = get_cached_data('daily_loan_situations_chart', _fetch_daily_loan_situations_data)
+    return jsonify(_fetch_daily_loan_situations_data())
 
 
 if __name__ == '__main__':

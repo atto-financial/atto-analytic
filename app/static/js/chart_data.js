@@ -259,4 +259,68 @@ document.addEventListener('DOMContentLoaded', function () {
         })
         .catch(error => console.error('Error fetching daily payoff details data:', error));
 
+    // --- NEW CHART: Daily Loan Situation Tracking ---
+    fetch('/api/daily_loan_situations')
+        .then(response => response.json())
+        .then(data => {
+            const labels = data.map(item => item.tracking_date);
+            const dueToday = data.map(item => item.due_today_amount);
+            const dueFuture = data.map(item => item.due_future_amount);
+            const overdue = data.map(item => item.overdue_amount);
+
+            const ctx = document.getElementById('dailyLoanSituationChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar', // Stacked bar chart
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Due Today',
+                            data: dueToday,
+                            backgroundColor: 'rgba(0, 123, 255, 0.7)', // Blue
+                            borderColor: 'rgba(0, 123, 255, 1)',
+                            borderWidth: 1,
+                            stack: 'loanSituation' // All datasets in this stack
+                        },
+                        {
+                            label: 'Due Future',
+                            data: dueFuture,
+                            backgroundColor: 'rgba(40, 167, 69, 0.7)', // Green
+                            borderColor: 'rgba(40, 167, 69, 1)',
+                            borderWidth: 1,
+                            stack: 'loanSituation'
+                        },
+                        {
+                            label: 'Overdue',
+                            data: overdue,
+                            backgroundColor: 'rgba(220, 53, 69, 0.7)', // Red
+                            borderColor: 'rgba(220, 53, 69, 1)',
+                            borderWidth: 1,
+                            stack: 'loanSituation'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: { unit: 'day', tooltipFormat: 'MMM D, YYYY', displayFormats: { day: 'MMM D' } },
+                            title: { display: true, text: 'Date' }
+                        },
+                        y: {
+                            stacked: true, // Crucial for stacking bars
+                            beginAtZero: true,
+                            title: { display: true, text: 'Amount' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: true },
+                        title: { display: true, text: 'Daily Loan Situation (Outstanding Amounts)' }
+                    }
+                }
+            });
+        })
+        .catch(error => console.error('Error fetching daily loan situation data:', error));
 });
