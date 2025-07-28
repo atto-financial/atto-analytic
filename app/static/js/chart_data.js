@@ -259,7 +259,7 @@ document.addEventListener('DOMContentLoaded', function () {
         })
         .catch(error => console.error('Error fetching daily payoff details data:', error));
 
-    // --- NEW CHART: Daily Loan Situation Tracking ---
+    // --- Daily Loan Situation Chart (Outstanding & Scheduled Due) ---
     fetch('/api/daily_loan_situations')
         .then(response => response.json())
         .then(data => {
@@ -267,57 +267,94 @@ document.addEventListener('DOMContentLoaded', function () {
             const dueToday = data.map(item => item.due_today_amount);
             const dueFuture = data.map(item => item.due_future_amount);
             const overdue = data.map(item => item.overdue_amount);
+            const recordedDueToday = data.map(item => item.recorded_due_today_amount); // Fetch the new data
 
             const ctx = document.getElementById('dailyLoanSituationChart').getContext('2d');
             new Chart(ctx, {
-                type: 'bar', // Stacked bar chart
+                type: 'bar', // Base type is bar for the stacked outstanding amounts
                 data: {
                     labels: labels,
                     datasets: [
                         {
-                            label: 'Due Today',
+                            label: 'Due Today (Outstanding)', // Clarify labels
                             data: dueToday,
-                            backgroundColor: 'rgba(0, 123, 255, 0.7)', // Blue
+                            backgroundColor: 'rgba(0, 123, 255, 0.7)', // Reusing blue from your original template for 'Due Today'
                             borderColor: 'rgba(0, 123, 255, 1)',
                             borderWidth: 1,
-                            stack: 'loanSituation' // All datasets in this stack
+                            stack: 'outstandingLoanStack', // Use a unique stack ID for outstanding amounts
+                            yAxisID: 'y'
                         },
                         {
-                            label: 'Due Future',
+                            label: 'Due Future (Outstanding)', // Clarify labels
                             data: dueFuture,
                             backgroundColor: 'rgba(40, 167, 69, 0.7)', // Green
                             borderColor: 'rgba(40, 167, 69, 1)',
                             borderWidth: 1,
-                            stack: 'loanSituation'
+                            stack: 'outstandingLoanStack',
+                            yAxisID: 'y'
                         },
                         {
-                            label: 'Overdue',
+                            label: 'Overdue (Outstanding)', // Clarify labels
                             data: overdue,
                             backgroundColor: 'rgba(220, 53, 69, 0.7)', // Red
                             borderColor: 'rgba(220, 53, 69, 1)',
                             borderWidth: 1,
-                            stack: 'loanSituation'
+                            stack: 'outstandingLoanStack',
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Scheduled Due Today (Total)', // New dataset for scheduled due amount
+                            data: recordedDueToday,
+                            type: 'line', // This will be a line chart
+                            borderColor: 'rgba(153, 102, 255, 1)', // Distinct color (e.g., Purple)
+                            backgroundColor: 'rgba(153, 102, 255, 0.2)', // Light fill
+                            borderWidth: 2,
+                            fill: false, // Don't fill for this line
+                            tension: 0.3, // Smooth the line
+                            yAxisID: 'y' // Place on the primary Y-axis for direct comparison with Due Today (Outstanding)
                         }
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: true },
+                        title: { display: true, text: 'Daily Loan Situation (Outstanding & Scheduled Due)' }, // Updated chart title
+                        tooltip: { // Add tooltip callbacks for currency formatting
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function (context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += '฿' + context.parsed.y.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
                     scales: {
                         x: {
                             type: 'time',
                             time: { unit: 'day', tooltipFormat: 'MMM D, YYYY', displayFormats: { day: 'MMM D' } },
                             title: { display: true, text: 'Date' }
                         },
-                        y: {
-                            stacked: true, // Crucial for stacking bars
+                        y: { // Primary Y-axis for stacked bars and the new line chart
+                            stacked: true, // This will stack the bars. The line chart won't stack on bars, but shares the axis.
                             beginAtZero: true,
-                            title: { display: true, text: 'Amount' }
+                            title: { display: true, text: 'Amount' },
+                            ticks: { // Add ticks callback for currency formatting
+                                callback: function (value) {
+                                    return '฿' + value.toLocaleString();
+                                }
+                            }
                         }
-                    },
-                    plugins: {
-                        legend: { display: true },
-                        title: { display: true, text: 'Daily Loan Situation (Outstanding Amounts)' }
+                        // Removed y1 as 'recorded_due_today' will share the 'y' axis
                     }
                 }
             });

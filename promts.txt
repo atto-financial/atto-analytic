@@ -318,7 +318,7 @@ CREATE TABLE public.user_occupations (
 );
 
 from these 2 tables I need 3 pieces of data and ist bar chart, daily, tracking loan amount situation that's not paid yet at the day in question (using seeing loan_requests.approved_loan_at, loan_requests.due_date, and loan_action_histories.created_at):
-1. Due Today - Sum total of loan_requests.approved_amount that have loan_requests.due_date that day AND still not have its (ref by loan_requests.loan_ref_id = loan_action_histories.loan_ref_id) loan_action_histories.action = pay_off of its loan_action_histories.created_at yet
+1. Due Today - Sum total of loan_requests.approved_amount that have loan_requests.due_date that day AND have both of its (ref by loan_requests.loan_ref_id = loan_action_histories.loan_ref_id) loan_action_histories.action = pay_off and loan_action_histories.action = admin_lend of its loan_action_histories.created_at yet
 2. Due Future - Sum total of loan_requests.approved_amount that have loan_requests.due_date at future of that day AND still not have its (ref by loan_requests.loan_ref_id = loan_action_histories.loan_ref_id) loan_action_histories.action = pay_off of its loan_action_histories.created_at yet
 3. Overdue - Sum total of loan_requests.approved_amount that have loan_requests.due_date previous of that day AND still not have its (ref by loan_requests.loan_ref_id = loan_action_histories.loan_ref_id) loan_action_histories.action = pay_off of its loan_action_histories.created_at yet
 

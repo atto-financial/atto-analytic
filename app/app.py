@@ -499,12 +499,11 @@ def user_occupations():
     data = get_cached_data('user_occupations_table', _fetch_data)
     return render_template('user_occupations.html', data=data)
 
-
 @app.route('/api/daily_loan_situations')
 def daily_loan_situations():
-    # Set the start_date to '2025-07-17'
-    start_date = date(2025, 7, 17)
-    end_date = date.today() # Keep end_date as today
+    # Set your desired date range
+    start_date = date(2025, 7, 17) 
+    end_date = date(2025, 7, 28) 
 
     query = f"""
         WITH all_dates AS (
@@ -522,43 +521,90 @@ def daily_loan_situations():
             GROUP BY
                 lah.loan_ref_id
         ),
-        approved_loans AS (
-            -- Get all approved loans with their due dates
+        loan_disbursements AS (
+            -- Get all distinct loan_ref_ids that have been actually disbursed (lent out)
+            SELECT
+                lah.loan_ref_id,
+                MIN(lah.created_at::date) AS earliest_disbursement_date
+            FROM
+                public.loan_action_histories lah
+            WHERE
+                lah.action = 'admin_lend'
+            GROUP BY
+                lah.loan_ref_id
+        ),
+        -- CTE for Outstanding Amounts: Filters loans by disbursement date <= tracking_date and not paid off by tracking_date.
+        -- NO FILTER on request_status here.
+        outstanding_loan_data AS (
             SELECT
                 lr.loan_ref_id,
                 lr.approved_amount,
                 lr.due_date::date AS loan_due_date,
-                lr.approved_loan_at::date AS approved_at
+                ld.earliest_disbursement_date AS disbursed_at, -- Use disbursement date for tracking
+                lpo.earliest_payoff_date
+            FROM
+                public.loan_requests lr
+            INNER JOIN -- Only include loans that have been disbursed
+                loan_disbursements ld ON lr.loan_ref_id = ld.loan_ref_id
+            LEFT JOIN
+                loan_payoffs lpo ON lr.loan_ref_id = lpo.loan_ref_id
+            WHERE
+                lr.approved_amount IS NOT NULL
+        ),
+        -- Aggregate Outstanding Amounts per tracking_date
+        aggregated_outstanding AS (
+            SELECT
+                ad.tracking_date,
+                SUM(CASE
+                    -- Due Today (Outstanding): loan is due on tracking_date AND was disbursed on or before tracking_date
+                    -- AND NOT paid off (earliest_payoff_date is NULL OR after tracking_date)
+                    WHEN old.loan_due_date = ad.tracking_date AND old.disbursed_at <= ad.tracking_date AND (old.earliest_payoff_date IS NULL OR old.earliest_payoff_date > ad.tracking_date)
+                    THEN old.approved_amount ELSE 0
+                END) AS due_today_amount,
+                SUM(CASE
+                    -- Due Future (Outstanding): due date in future AND was disbursed on or before tracking_date
+                    -- AND NOT paid off (earliest_payoff_date is NULL OR after tracking_date)
+                    WHEN old.loan_due_date > ad.tracking_date AND old.disbursed_at <= ad.tracking_date AND (old.earliest_payoff_date IS NULL OR old.earliest_payoff_date > ad.tracking_date)
+                    THEN old.approved_amount ELSE 0
+                END) AS due_future_amount,
+                SUM(CASE
+                    -- Overdue (Outstanding): due date in past AND was disbursed on or before tracking_date
+                    -- AND NOT paid off (earliest_payoff_date is NULL OR after tracking_date)
+                    WHEN old.loan_due_date < ad.tracking_date AND old.disbursed_at <= ad.tracking_date AND (old.earliest_payoff_date IS NULL OR old.earliest_payoff_date > ad.tracking_date)
+                    THEN old.approved_amount ELSE 0
+                END) AS overdue_amount
+            FROM
+                all_dates ad
+            CROSS JOIN
+                outstanding_loan_data old
+            GROUP BY
+                ad.tracking_date
+        ),
+        -- CTE for Recorded Due Today: Only considers loans with a due_date equal to tracking_date and a non-NULL approved_amount.
+        -- NO FILTER on request_status here.
+        recorded_due_today AS (
+            SELECT
+                lr.due_date::date AS tracking_date,
+                SUM(lr.approved_amount) AS recorded_due_today_amount
             FROM
                 public.loan_requests lr
             WHERE
-                lr.request_status = 'approved' AND lr.approved_amount IS NOT NULL
+                lr.approved_amount IS NOT NULL -- Only filter by non-NULL approved_amount
+            GROUP BY
+                lr.due_date::date
         )
         SELECT
             ad.tracking_date,
-            COALESCE(SUM(CASE
-                WHEN al.loan_due_date = ad.tracking_date AND (lpo.earliest_payoff_date IS NULL OR lpo.earliest_payoff_date > ad.tracking_date)
-                THEN al.approved_amount ELSE 0
-            END), 0.00) AS due_today_amount,
-            COALESCE(SUM(CASE
-                WHEN al.loan_due_date > ad.tracking_date AND (lpo.earliest_payoff_date IS NULL OR lpo.earliest_payoff_date > ad.tracking_date)
-                THEN al.approved_amount ELSE 0
-            END), 0.00) AS due_future_amount,
-            COALESCE(SUM(CASE
-                WHEN al.loan_due_date < ad.tracking_date AND (lpo.earliest_payoff_date IS NULL OR lpo.earliest_payoff_date > ad.tracking_date)
-                THEN al.approved_amount ELSE 0
-            END), 0.00) AS overdue_amount
+            COALESCE(ago.due_today_amount, 0.00) AS due_today_amount,
+            COALESCE(ago.due_future_amount, 0.00) AS due_future_amount,
+            COALESCE(ago.overdue_amount, 0.00) AS overdue_amount,
+            COALESCE(rdt.recorded_due_today_amount, 0.00) AS recorded_due_today_amount
         FROM
             all_dates ad
-        CROSS JOIN
-            approved_loans al
         LEFT JOIN
-            loan_payoffs lpo ON al.loan_ref_id = lpo.loan_ref_id
-        WHERE
-            -- Only consider loans that were approved on or before the tracking date
-            al.approved_at <= ad.tracking_date
-        GROUP BY
-            ad.tracking_date
+            aggregated_outstanding ago ON ad.tracking_date = ago.tracking_date
+        LEFT JOIN
+            recorded_due_today rdt ON ad.tracking_date = rdt.tracking_date
         ORDER BY
             ad.tracking_date ASC;
     """
@@ -578,10 +624,7 @@ def daily_loan_situations():
             processed_data.append(processed_row)
         return processed_data
 
-    # The caching is commented out as per your last provided code snippet.
-    # cached_result = get_cached_data('daily_loan_situations_chart', _fetch_daily_loan_situations_data)
     return jsonify(_fetch_daily_loan_situations_data())
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=4370, debug=True)
