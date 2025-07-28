@@ -49,13 +49,12 @@ web_app_db_visualizer/
     Create a file named `.env` in the root directory of the project (next to `docker-compose.yml`) and add your PostgreSQL database credentials:
 
     ```
-    DB_HOST='34.9.180.179'
-    DB_USER='attoreader'
-    DB_PASS='~wgJG^T53_:(dkc[j3'
-    DB_NAME='prod-core-atto'
-    DB_PORT='5432'
+    DB_HOST=''
+    DB_USER=''
+    DB_PASS=''
+    DB_NAME=''
+    DB_PORT=''
     ```
-    **Important:** Replace `~wgJG^T53_:(dkc[j3` with the actual password. Note that special characters in passwords might need to be properly escaped or quoted depending on your shell/environment if you were passing them directly, but `dotenv` usually handles this well.
 
 3.  **Build and Run with Docker Compose:**
     Navigate to the root directory of the project where `docker-compose.yml` is located and run:
