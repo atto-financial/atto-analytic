@@ -14,6 +14,7 @@
 </head>
 
 <body>
+
     <div class="container">
         <h1>Atto Fiancial (Corp.) Analytic Technology</h1>
         <nav>
@@ -52,6 +53,8 @@
             <canvas id="dailyLoanSituationChart"></canvas>
         </div>
     </div>
+    <a href="{{ url_for('logout') }}"
+        style="position: absolute; top: 10px; right: 10px; background-color: #dc3545; color: white; padding: 8px 12px; border-radius: 5px; text-decoration: none;">Logout</a>
     <script src="{{ url_for('static', filename='js/chart_data.js') }}"></script>
 </body>
 

@@ -1,10 +1,21 @@
-from flask import Flask, render_template, jsonify
-from database import Database
-import time
 import decimal
 from datetime import date, timedelta
+import os
+from flask import Flask, render_template, jsonify, request, Response, abort, session, redirect, url_for, flash
+from database import Database
+import time
+from functools import wraps
+from dotenv import load_dotenv
+
+load_dotenv()  # Load environment variables from .env file
 
 app = Flask(__name__)
+# --- Session Management Configuration ---
+# IMPORTANT: This line MUST be here, right after app = Flask(__name__)
+# Change this to a strong, random value in production.
+# Example for production: import os; app.secret_key = os.environ.get('FLASK_SECRET_KEY')
+app.secret_key = os.getenv('AUTH_SECRET')
+# ----------------------------------------
 db = Database()
 
 # Basic in-memory cache
@@ -25,6 +36,65 @@ def get_cached_data(key, fetch_function, *args, **kwargs):
     data = fetch_function(*args, **kwargs)
     CACHE[key] = {'data': data, 'timestamp': now}
     return data
+
+
+# --- Basic Auth Credentials (for demonstration purposes) ---
+# In a real application, retrieve these from environment variables or a secure configuration management system
+# and hash the password!
+USERNAME = os.getenv('AUTH_USERNAME')
+PASSWORD = os.getenv('AUTH_PASSWORD')
+# -----------------------------------------------------------
+
+# Authentication function (used by the new login system)
+
+
+def check_credentials(username, password):
+    """This function is called to check if a username /
+    password combination is valid.
+    """
+    return username == USERNAME and password == PASSWORD
+
+# --- New Authentication Flow ---
+
+
+@app.before_request
+def require_login():
+    # Allow access to the login page, logout page, and static files without being logged in
+    if request.endpoint == 'static' or \
+       request.endpoint == 'login' or \
+       request.endpoint == 'logout' or \
+       session.get('logged_in'):  # If session indicates logged in
+        return  # Allow the request to proceed
+
+    # If not logged in and not trying to access an allowed endpoint, redirect to login
+    # Optional: Flash message for user
+    flash('Please log in to access this page.', 'info')
+    return redirect(url_for('login'))
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if session.get('logged_in'):  # If already logged in, redirect to home
+        return redirect(url_for('index'))
+
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        if check_credentials(username, password):
+            session['logged_in'] = True
+            flash('Logged in successfully!', 'success')
+            # Redirect to home page after successful login
+            return redirect(url_for('index'))
+        else:
+            flash('Invalid credentials. Please try again.', 'danger')
+    return render_template('login.html')
+
+
+@app.route('/logout')
+def logout():
+    session.pop('logged_in', None)  # Remove 'logged_in' from session
+    flash('You have been logged out.', 'info')
+    return redirect(url_for('login'))
 
 
 @app.route('/')
@@ -499,11 +569,12 @@ def user_occupations():
     data = get_cached_data('user_occupations_table', _fetch_data)
     return render_template('user_occupations.html', data=data)
 
+
 @app.route('/api/daily_loan_situations')
 def daily_loan_situations():
     # Set your desired date range
-    start_date = date(2025, 7, 17) 
-    end_date = date(2025, 7, 28) 
+    start_date = date(2025, 7, 17)
+    end_date = date(2025, 7, 28)
 
     query = f"""
         WITH all_dates AS (
@@ -625,6 +696,7 @@ def daily_loan_situations():
         return processed_data
 
     return jsonify(_fetch_daily_loan_situations_data())
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=4370, debug=True)
