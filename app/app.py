@@ -574,7 +574,7 @@ def user_occupations():
 def daily_loan_situations():
     # Set your desired date range
     start_date = date(2025, 7, 17)
-    end_date = date(2025, 7, 28)
+    end_date = date.today()
 
     query = f"""
         WITH all_dates AS (
