@@ -708,6 +708,7 @@ def debtor_list():
         return redirect(url_for('login'))
 
     queries = {
+        # --- (Existing sheets) ---
         'Due date do not payoff': """
             SELECT
                 cnp.line_latest_profile_display,
@@ -770,7 +771,27 @@ def debtor_list():
                 DATE(lr.due_date) < DATE(CURRENT_DATE - INTERVAL '7 hours')
                 AND lr.request_status = 'approved'
                 AND lss.loan_status = 'npl';
+        """,
+        # --- START NEW SHEET ---
+        'All Active Loans': """
+            SELECT
+                cnp.line_latest_profile_display,
+                lss.principle,
+                lss.total_loan_amount,
+                lr.due_date,
+                cnp.line_user_id,
+                lss.loan_status,
+                lr.request_amount,
+                lr.request_status
+            FROM users u
+            INNER JOIN connect_platforms cnp ON cnp.user_id = u.user_id
+            INNER JOIN loan_requests lr ON lr.user_id = u.user_id
+            INNER JOIN loan_summary_statuses lss ON lss.user_id = u.user_id
+            WHERE 
+                lr.request_status = 'approved'
+            ORDER BY lr.due_date ASC;
         """
+        # --- END NEW SHEET ---
     }
 
     # Create an in-memory buffer to hold the Excel file
@@ -806,7 +827,6 @@ def debtor_list():
     
     # Generate a dynamic filename with the current date and time
     now = datetime.now()
-    # Format: debtor_list_2025-08-26_19-06-14.xlsx
     timestamp_str = now.strftime("%Y-%m-%d_%H-%M-%S")
     filename = f"debtor_list_{timestamp_str}.xlsx"
     
@@ -818,6 +838,7 @@ def debtor_list():
     response.headers['Content-type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     
     return response
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=4370, debug=True)
