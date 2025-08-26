@@ -708,91 +708,92 @@ def debtor_list():
         return redirect(url_for('login'))
 
     queries = {
-        # --- (Existing sheets) ---
-        'Due date do not payoff': """
-            SELECT
-                cnp.line_latest_profile_display,
-                lss.principle,
-                lss.total_loan_amount,
-                lr.due_date,
-                cnp.line_user_id
-            FROM users u
-            INNER JOIN connect_platforms cnp ON cnp.user_id = u.user_id
-            INNER JOIN loan_requests lr ON lr.user_id = u.user_id
-            INNER JOIN loan_summary_statuses lss ON lss.user_id = u.user_id
-            WHERE 
-                DATE(lr.due_date) = DATE(CURRENT_DATE - INTERVAL '7 hours')
-                AND lr.request_status = 'approved';
-        """,
-        'Late pay': """
-            SELECT
-                cnp.line_latest_profile_display,
-                lss.principle,
-                lss.total_loan_amount,
-                lr.due_date,
-                cnp.line_user_id
-            FROM users u
-            INNER JOIN connect_platforms cnp ON cnp.user_id = u.user_id
-            INNER JOIN loan_requests lr ON lr.user_id = u.user_id
-            INNER JOIN loan_summary_statuses lss ON lss.user_id = u.user_id
-            WHERE 
-                DATE(lr.due_date) < DATE(CURRENT_DATE - INTERVAL '7 hours')
-                AND lr.request_status = 'approved'
-                AND lss.loan_status = 'healthy';
-        """,
-        'Overdue': """
-            SELECT
-                cnp.line_latest_profile_display,
-                lss.principle,
-                lss.total_loan_amount,
-                lr.due_date,
-                cnp.line_user_id
-            FROM users u
-            INNER JOIN connect_platforms cnp ON cnp.user_id = u.user_id
-            INNER JOIN loan_requests lr ON lr.user_id = u.user_id
-            INNER JOIN loan_summary_statuses lss ON lss.user_id = u.user_id
-            WHERE 
-                DATE(lr.due_date) < DATE(CURRENT_DATE - INTERVAL '7 hours')
-                AND lr.request_status = 'approved'
-                AND lss.loan_status = 'loan_overdue';
-        """,
-        'NPL': """
-            SELECT
-                cnp.line_latest_profile_display,
-                lss.principle,
-                lss.total_loan_amount,
-                lr.due_date,
-                cnp.line_user_id
-            FROM users u
-            INNER JOIN connect_platforms cnp ON cnp.user_id = u.user_id
-            INNER JOIN loan_requests lr ON lr.user_id = u.user_id
-            INNER JOIN loan_summary_statuses lss ON lss.user_id = u.user_id
-            WHERE 
-                DATE(lr.due_date) < DATE(CURRENT_DATE - INTERVAL '7 hours')
-                AND lr.request_status = 'approved'
-                AND lss.loan_status = 'npl';
-        """,
-        # --- START NEW SHEET ---
-        'All Active Loans': """
-            SELECT
-                cnp.line_latest_profile_display,
-                lss.principle,
-                lss.total_loan_amount,
-                lr.due_date,
-                cnp.line_user_id,
-                lss.loan_status,
-                lr.request_amount,
-                lr.request_status
-            FROM users u
-            INNER JOIN connect_platforms cnp ON cnp.user_id = u.user_id
-            INNER JOIN loan_requests lr ON lr.user_id = u.user_id
-            INNER JOIN loan_summary_statuses lss ON lss.user_id = u.user_id
-            WHERE 
-                lr.request_status = 'approved'
-            ORDER BY lr.due_date ASC;
-        """
-        # --- END NEW SHEET ---
-    }
+    # --- (Existing sheets, no changes needed) ---
+    'Due date do not payoff': """
+        SELECT
+            cnp.line_latest_profile_display,
+            lss.principle,
+            lss.total_loan_amount,
+            lr.due_date,
+            cnp.line_user_id
+        FROM users u
+        INNER JOIN connect_platforms cnp ON cnp.user_id = u.user_id
+        INNER JOIN loan_requests lr ON lr.user_id = u.user_id
+        INNER JOIN loan_summary_statuses lss ON lss.user_id = u.user_id
+        WHERE 
+            DATE(lr.due_date) = DATE(CURRENT_DATE - INTERVAL '7 hours')
+            AND lr.request_status = 'approved';
+    """,
+    'Late pay': """
+        SELECT
+            cnp.line_latest_profile_display,
+            lss.principle,
+            lss.total_loan_amount,
+            lr.due_date,
+            cnp.line_user_id
+        FROM users u
+        INNER JOIN connect_platforms cnp ON cnp.user_id = u.user_id
+        INNER JOIN loan_requests lr ON lr.user_id = u.user_id
+        INNER JOIN loan_summary_statuses lss ON lss.user_id = u.user_id
+        WHERE 
+            DATE(lr.due_date) < DATE(CURRENT_DATE - INTERVAL '7 hours')
+            AND lr.request_status = 'approved'
+            AND lss.loan_status = 'healthy';
+    """,
+    'Overdue': """
+        SELECT
+            cnp.line_latest_profile_display,
+            lss.principle,
+            lss.total_loan_amount,
+            lr.due_date,
+            cnp.line_user_id
+        FROM users u
+        INNER JOIN connect_platforms cnp ON cnp.user_id = u.user_id
+        INNER JOIN loan_requests lr ON lr.user_id = u.user_id
+        INNER JOIN loan_summary_statuses lss ON lss.user_id = u.user_id
+        WHERE 
+            DATE(lr.due_date) < DATE(CURRENT_DATE - INTERVAL '7 hours')
+            AND lr.request_status = 'approved'
+            AND lss.loan_status = 'loan_overdue';
+    """,
+    'NPL': """
+        SELECT
+            cnp.line_latest_profile_display,
+            lss.principle,
+            lss.total_loan_amount,
+            lr.due_date,
+            cnp.line_user_id
+        FROM users u
+        INNER JOIN connect_platforms cnp ON cnp.user_id = u.user_id
+        INNER JOIN loan_requests lr ON lr.user_id = u.user_id
+        INNER JOIN loan_summary_statuses lss ON lss.user_id = u.user_id
+        WHERE 
+            DATE(lr.due_date) < DATE(CURRENT_DATE - INTERVAL '7 hours')
+            AND lr.request_status = 'approved'
+            AND lss.loan_status = 'npl';
+    """,
+    # --- UPDATED "All Active Loans" SHEET ---
+    'All Active Loans': """
+        SELECT
+            cnp.line_latest_profile_display,
+            lss.principle,
+            lss.total_loan_amount,
+            lr.due_date,
+            cnp.line_user_id,
+            lss.loan_status,
+            lr.request_amount,
+            lr.request_status,
+            lg.title AS loan_group_title  -- Add the new column here
+        FROM users u
+        INNER JOIN connect_platforms cnp ON cnp.user_id = u.user_id
+        INNER JOIN loan_requests lr ON lr.user_id = u.user_id
+        INNER JOIN loan_summary_statuses lss ON lss.user_id = u.user_id
+        LEFT JOIN loan_groups lg ON lg.loan_group_id = lss.loan_group_id  -- Join with loan_groups
+        WHERE 
+            lr.request_status = 'approved'
+        ORDER BY lr.due_date ASC;
+    """
+}
 
     # Create an in-memory buffer to hold the Excel file
     excel_buffer = BytesIO()
