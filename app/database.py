@@ -7,7 +7,6 @@ import threading  # To ensure thread-safe instantiation if Flask app serves mult
 
 load_dotenv()  # Load environment variables from .env file
 
-
 class Database:
     _instance = None
     _lock = threading.Lock()

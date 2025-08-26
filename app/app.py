@@ -1,11 +1,13 @@
 import decimal
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 import os
-from flask import Flask, render_template, jsonify, request, Response, abort, session, redirect, url_for, flash
+from flask import Flask, render_template, jsonify, request, Response, abort, session, redirect, url_for, flash, make_response
 from database import Database
 import time
 from functools import wraps
 from dotenv import load_dotenv
+import pandas as pd
+from io import BytesIO
 
 load_dotenv()  # Load environment variables from .env file
 
@@ -138,16 +140,16 @@ def loan_request_status_data():
 def daily_loan_transaction_summary():
     query = """
         SELECT
-            DATE(created_at) AS transaction_date,
+            DATE(created_at + INTERVAL '7 hours') AS transaction_date,
             SUM(CASE WHEN action = 'admin_lend' THEN amount ELSE 0 END) AS total_lent_amount,
             SUM(CASE WHEN action = 'payoff' THEN amount ELSE 0 END) AS total_payoff_amount
         FROM
             public.loan_action_histories
         WHERE
             action IN ('admin_lend', 'payoff') AND
-            created_at >= '2025-07-17'
+            created_at + INTERVAL '7 hours' >= '2025-07-17'
         GROUP BY
-            DATE(created_at)
+            DATE(created_at + INTERVAL '7 hours')
         ORDER BY
             transaction_date ASC;
     """
@@ -172,7 +174,7 @@ def daily_loan_transaction_summary():
 def daily_payoff_details():
     query = """
         SELECT
-            DATE(lah.created_at) AS payoff_date,
+            DATE(lah.created_at + INTERVAL '7 hours') AS payoff_date,
             COALESCE(SUM(lr.approved_amount), 0.00) AS total_principal_paid,
             COALESCE(SUM(iah.total_amount), 0.00) AS total_interest_paid,
             COALESCE(SUM(fah.fee), 0.00) AS total_initial_fee_paid,
@@ -194,9 +196,9 @@ def daily_payoff_details():
             ON lah.loan_ref_id = cfh.loan_ref_id
         WHERE
             lah.action = 'payoff' AND
-            lah.created_at >= '2025-07-17'
+            lah.created_at + INTERVAL '7 hours' >= '2025-07-17'
         GROUP BY
-            DATE(lah.created_at)
+            DATE(lah.created_at + INTERVAL '7 hours')
         ORDER BY
             payoff_date ASC;
     """
@@ -584,7 +586,7 @@ def daily_loan_situations():
             -- Get all distinct loan_ref_ids that have been paid off and the earliest payoff date
             SELECT
                 lah.loan_ref_id,
-                MIN(lah.created_at::date) AS earliest_payoff_date
+                MIN(lah.created_at + INTERVAL '7 hours') AS earliest_payoff_date
             FROM
                 public.loan_action_histories lah
             WHERE
@@ -596,7 +598,7 @@ def daily_loan_situations():
             -- Get all distinct loan_ref_ids that have been actually disbursed (lent out)
             SELECT
                 lah.loan_ref_id,
-                MIN(lah.created_at::date) AS earliest_disbursement_date
+                MIN(lah.created_at + INTERVAL '7 hours') AS earliest_disbursement_date
             FROM
                 public.loan_action_histories lah
             WHERE
@@ -610,7 +612,7 @@ def daily_loan_situations():
             SELECT
                 lr.loan_ref_id,
                 lr.approved_amount,
-                lr.due_date::date AS loan_due_date,
+                lr.due_date + INTERVAL '7 hours' AS loan_due_date,
                 ld.earliest_disbursement_date AS disbursed_at, -- Use disbursement date for tracking
                 lpo.earliest_payoff_date
             FROM
@@ -655,14 +657,14 @@ def daily_loan_situations():
         -- NO FILTER on request_status here.
         recorded_due_today AS (
             SELECT
-                lr.due_date::date AS tracking_date,
+                lr.due_date + INTERVAL '7 hours' AS tracking_date,
                 SUM(lr.approved_amount) AS recorded_due_today_amount
             FROM
                 public.loan_requests lr
             WHERE
                 lr.approved_amount IS NOT NULL -- Only filter by non-NULL approved_amount
             GROUP BY
-                lr.due_date::date
+                lr.due_date + INTERVAL '7 hours'
         )
         SELECT
             ad.tracking_date,
@@ -697,6 +699,125 @@ def daily_loan_situations():
 
     return jsonify(_fetch_daily_loan_situations_data())
 
+# The new endpoint to generate and download the Excel file
+@app.route('/debtor-list')
+def debtor_list():
+    # Authentication check before serving the file
+    if not session.get('logged_in'):
+        flash('Please log in to access this page.', 'info')
+        return redirect(url_for('login'))
+
+    queries = {
+        'Due date do not payoff': """
+            SELECT
+                cnp.line_latest_profile_display,
+                lss.principle,
+                lss.total_loan_amount,
+                lr.due_date,
+                cnp.line_user_id
+            FROM users u
+            INNER JOIN connect_platforms cnp ON cnp.user_id = u.user_id
+            INNER JOIN loan_requests lr ON lr.user_id = u.user_id
+            INNER JOIN loan_summary_statuses lss ON lss.user_id = u.user_id
+            WHERE 
+                DATE(lr.due_date) = DATE(CURRENT_DATE - INTERVAL '7 hours')
+                AND lr.request_status = 'approved';
+        """,
+        'Late pay': """
+            SELECT
+                cnp.line_latest_profile_display,
+                lss.principle,
+                lss.total_loan_amount,
+                lr.due_date,
+                cnp.line_user_id
+            FROM users u
+            INNER JOIN connect_platforms cnp ON cnp.user_id = u.user_id
+            INNER JOIN loan_requests lr ON lr.user_id = u.user_id
+            INNER JOIN loan_summary_statuses lss ON lss.user_id = u.user_id
+            WHERE 
+                DATE(lr.due_date) < DATE(CURRENT_DATE - INTERVAL '7 hours')
+                AND lr.request_status = 'approved'
+                AND lss.loan_status = 'healthy';
+        """,
+        'Overdue': """
+            SELECT
+                cnp.line_latest_profile_display,
+                lss.principle,
+                lss.total_loan_amount,
+                lr.due_date,
+                cnp.line_user_id
+            FROM users u
+            INNER JOIN connect_platforms cnp ON cnp.user_id = u.user_id
+            INNER JOIN loan_requests lr ON lr.user_id = u.user_id
+            INNER JOIN loan_summary_statuses lss ON lss.user_id = u.user_id
+            WHERE 
+                DATE(lr.due_date) < DATE(CURRENT_DATE - INTERVAL '7 hours')
+                AND lr.request_status = 'approved'
+                AND lss.loan_status = 'loan_overdue';
+        """,
+        'NPL': """
+            SELECT
+                cnp.line_latest_profile_display,
+                lss.principle,
+                lss.total_loan_amount,
+                lr.due_date,
+                cnp.line_user_id
+            FROM users u
+            INNER JOIN connect_platforms cnp ON cnp.user_id = u.user_id
+            INNER JOIN loan_requests lr ON lr.user_id = u.user_id
+            INNER JOIN loan_summary_statuses lss ON lss.user_id = u.user_id
+            WHERE 
+                DATE(lr.due_date) < DATE(CURRENT_DATE - INTERVAL '7 hours')
+                AND lr.request_status = 'approved'
+                AND lss.loan_status = 'npl';
+        """
+    }
+
+    # Create an in-memory buffer to hold the Excel file
+    excel_buffer = BytesIO()
+
+    # Use a Pandas ExcelWriter to write to the buffer
+    with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
+        for sheet_name, query in queries.items():
+            try:
+                # Fetch data from the database
+                data = db.fetch_all(query)
+                
+                # Pre-process the data to remove timezone information
+                for row in data:
+                    if 'due_date' in row and row['due_date'] is not None and pd.to_datetime(row['due_date']).tz is not None:
+                        row['due_date'] = pd.to_datetime(row['due_date']).tz_localize(None)
+                
+                # Convert the list of dictionaries to a Pandas DataFrame
+                df = pd.DataFrame(data)
+                
+                # Write the DataFrame to a specific sheet
+                df.to_excel(writer, sheet_name=sheet_name, index=False)
+            except Exception as e:
+                # Log the error but continue
+                print(f"Error generating sheet '{sheet_name}': {e}")
+                
+                # Create an error DataFrame for this sheet
+                error_df = pd.DataFrame([{'Error': f"Could not generate this sheet due to an error: {e}"}])
+                error_df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+    # Move the buffer's cursor to the beginning
+    excel_buffer.seek(0)
+    
+    # Generate a dynamic filename with the current date and time
+    now = datetime.now()
+    # Format: debtor_list_2025-08-26_19-06-14.xlsx
+    timestamp_str = now.strftime("%Y-%m-%d_%H-%M-%S")
+    filename = f"debtor_list_{timestamp_str}.xlsx"
+    
+    # Create the HTTP response with the Excel file
+    response = make_response(excel_buffer.getvalue())
+    
+    # Set the headers for file download
+    response.headers['Content-Disposition'] = f'attachment; filename={filename}'
+    response.headers['Content-type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    
+    return response
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=4370, debug=True)
