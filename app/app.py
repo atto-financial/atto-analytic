@@ -775,6 +775,7 @@ def debtor_list():
     # --- UPDATED "All Active Loans" SHEET ---
     'All Active Loans': """
         SELECT
+            lg.title AS loan_group_title,
             cnp.line_latest_profile_display,
             lss.principle,
             lss.total_loan_amount,
@@ -782,8 +783,7 @@ def debtor_list():
             cnp.line_user_id,
             lss.loan_status,
             lr.request_amount,
-            lr.request_status,
-            lg.title AS loan_group_title  -- Add the new column here
+            lr.request_status
         FROM users u
         INNER JOIN connect_platforms cnp ON cnp.user_id = u.user_id
         INNER JOIN loan_requests lr ON lr.user_id = u.user_id
